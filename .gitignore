@@ -1,0 +1,16 @@
+# Flutter
+build/
+.dart_tool/
+.flutter-plugins
+.packages
+.pub-cache/
+.pub/
+
+# Python
+__pycache__/
+*.pyc
+env/
+venv/
+
+# VSCode
+.vscode/
