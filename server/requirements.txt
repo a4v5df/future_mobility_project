@@ -1,3 +1,7 @@
-fastapi
-uvicorn
-pydantic
+opencv-python
+ultralytics
+torch
+fer
+diffusers
+transformers
+accelerate

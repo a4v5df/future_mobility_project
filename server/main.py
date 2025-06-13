@@ -1,33 +1,38 @@
-from fastapi import FastAPI
-from pydantic import BaseModel
-from fastapi.middleware.cors import CORSMiddleware
-from diffusion.generate import generate_image
-from camera.show_overlay import show_image_overlay  
+import cv2
+import numpy as np
+from camera.capture import Camera
+from detectors.yolo_detector import YOLODetector
+from detectors.fer_detector import FERDetector
+from visualizers.overlay import Overlay
+from generators.sd_generator import SDGenerator
 
-import threading
+def main():
+    cam = Camera(0)
+    yolo = YOLODetector('yolov8m.pt', device='cpu')
+    fer  = FERDetector(mtcnn=True)
+    sd   = SDGenerator(device='cpu')
+    try:
+        while True:
+            frame = cam.get_frame()
+            boxes = yolo.detect(frame)
+            emotions = fer.analyze(frame, boxes)
+            Overlay.draw(frame, boxes, emotions)
 
-app = FastAPI()
+            if emotions:
+                prompt = sd.generate_prompt(emotions[0].emotion)
+                sd_img = sd.generate_image(prompt, height=128, width=128)
+                # 생성된 이미지를 frame 오른쪽 위에 붙이기
+                h, w = sd_img.size
+                sd_np = cv2.cvtColor(np.array(sd_img), cv2.COLOR_RGB2BGR)
+                frame[0:h, -w:] = sd_np
 
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
+            cv2.imshow('YOLO + FER', frame)
+            if cv2.waitKey(1) & 0xFF == 27:
+                break
+    finally:
+        cam.release()
+        cv2.destroyAllWindows()
 
-class SpeechInput(BaseModel):
-    text: str
 
-@app.post("/generate")
-async def generate(speech: SpeechInput):
-    prompt = speech.text
-    print(f"🗣️ 사용자 프롬프트 수신: {prompt}")
-
-    def run_generation():
-        image_path = generate_image(prompt)
-        show_image_overlay(image_path)  # 생성된 이미지를 실시간 영상에 오버레이
-
-    threading.Thread(target=run_generation).start()
-
-    return {"status": "accepted", "message": f"프롬프트 수신 완료: {prompt}"}
+if __name__ == '__main__':
+    main()

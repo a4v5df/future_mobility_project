@@ -1,0 +1,28 @@
+import cv2
+import torch
+from ultralytics import YOLO
+from typing import NamedTuple, List
+
+class Box(NamedTuple):
+    x1: int
+    y1: int
+    x2: int
+    y2: int
+    label: str
+    score: float
+
+class YOLODetector:
+    def __init__(self, model_path: str = 'yolov8m.pt', device: str = 'cuda'):
+        self.model = YOLO(model_path)
+        self.model.to(device)
+
+    def detect(self, frame) -> List[Box]:
+        results = self.model(frame)[0]
+        boxes: List[Box] = []
+        for box in results.boxes:
+            x1, y1, x2, y2 = map(int, box.xyxy[0].tolist())
+            cls_id = int(box.cls[0])
+            label = results.names[cls_id]
+            score = float(box.conf[0])
+            boxes.append(Box(x1, y1, x2, y2, label, score))
+        return boxes
