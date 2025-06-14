@@ -3,7 +3,7 @@ import torch
 from typing import Optional
 
 class SDGenerator:
-    def __init__(self, model_name: str = 'runwayml/stable-diffusion-v1-5', device: str = 'cuda'):
+    def __init__(self, model_name: str = 'runwayml/stable-diffusion-v1-5', device: str = 'cpu'):
         self.pipe = StableDiffusionPipeline.from_pretrained(model_name)
         self.pipe = self.pipe.to(device)
 

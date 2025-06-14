@@ -31,7 +31,7 @@ class EmotionDetector:
                 score = face_data['emotion'][emotion]
 
                 results.append(Box(x1, y1, x2, y2, label=emotion, score=score))
-                print(f"[DETECT] {emotion} ({score:.2f}) at ({x1},{y1}) to ({x2},{y2})")
+                # print(f"[DETECT] {emotion} ({score:.2f}) at ({x1},{y1}) to ({x2},{y2})") // 디버깅용
 
         except Exception as e:
             print(f"[DeepFace] 감정 분석 오류: {e}")
