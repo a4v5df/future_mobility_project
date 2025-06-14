@@ -1,17 +1,8 @@
-import cv2
-import torch
 from ultralytics import YOLO
-from typing import NamedTuple, List
+from typing import List
+from detectors.types import Box  
 
-class Box(NamedTuple):
-    x1: int
-    y1: int
-    x2: int
-    y2: int
-    label: str
-    score: float
-
-class YOLODetector:
+class ObjectDetector:
     def __init__(self, model_path: str = 'yolov8m.pt', device: str = 'cuda'):
         self.model = YOLO(model_path)
         self.model.to(device)

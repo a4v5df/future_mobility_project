@@ -1,7 +1,9 @@
 opencv-python
 ultralytics
 torch
+numpy
 fer
 diffusers
 transformers
 accelerate
+pillow
