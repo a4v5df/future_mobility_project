@@ -9,16 +9,8 @@ from generators.sd_generator import SDGenerator
 import uvicorn
 import time
 from emotion_state import update_emotion_counter, generate_prompt_from_top_emotion, clear_emotions
-from server import (
-    is_emotion_triggered,
-    is_text_triggered,
-    get_latest_prompt,
-    reset_triggers,
-    is_reset_requested,
-    clear_reset_flag,
-    is_sd_generation_requested,
-    clear_sd_generation_flag,
-)
+from server import is_emotion_triggered, is_text_triggered, get_latest_prompt, reset_triggers, is_reset_requested, clear_reset_flag, is_sd_generation_requested,clear_sd_generation_flag
+
 
 sd_img_ready = False
 latest_sd_img = None
@@ -26,20 +18,20 @@ sd_lock = threading.Lock()
 yolo_enabled = False
 obj_boxes = []
 device = 'cpu'
-def generate_sd_background(prompt, height, width, filename):
+
+def generate_sd_background(sd, prompt, height, width):
     global latest_sd_img, sd_img_ready
-    sd = SDGenerator(device = device)
     img = sd.generate_image(prompt, height=height, width=width)
     with sd_lock:
         latest_sd_img = cv2.cvtColor(np.array(img), cv2.COLOR_RGB2BGR)
         sd_img_ready = True
-        cv2.imwrite(filename, latest_sd_img)
 
 def main_loop():
     global latest_sd_img, sd_img_ready, yolo_enabled, obj_boxes
     cam = Camera(0)
     yolo = ObjectDetector(device=device)
     emo = EmotionDetector()
+    sd = SDGenerator(device = device)
 
     try:
         while True:
@@ -62,14 +54,19 @@ def main_loop():
             if is_sd_generation_requested():
                 if is_emotion_triggered():
                     prompt = generate_prompt_from_top_emotion()
-                    filename = "emotion_frame.jpg"
+
                 elif is_text_triggered():
                     prompt = get_latest_prompt()
-                    filename = "text_frame.jpg"
+
                 else:
                     prompt = "a neutral background"
-                    filename = "default_frame.jpg"
-                threading.Thread(target=generate_sd_background, args=(prompt, frame.shape[0], frame.shape[1], filename), daemon=True).start()
+
+                threading.Thread(
+                        target=generate_sd_background,
+                        args=(sd, prompt, frame.shape[0], frame.shape[1]),
+                        daemon=True
+                    ).start()
+                
                 reset_triggers()
                 clear_sd_generation_flag()
 

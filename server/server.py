@@ -1,6 +1,6 @@
 from fastapi import FastAPI
 from pydantic import BaseModel
-from emotion_state import get_emotion_counter, get_top_emotion, get_latest_emotion_prompt
+from emotion_state import get_emotion_counter, get_top_emotion, get_latest_emotion_prompt, generate_prompt_from_text_input
 
 latest_prompt = None
 emotion_triggered = False
@@ -41,7 +41,8 @@ def emotion_trigger():
 @app.post("/text-trigger")
 def text_trigger(input: TextInput):
     global latest_prompt, text_triggered, emotion_triggered, sd_generation_requested
-    latest_prompt = input.text
+    latest_prompt = generate_prompt_from_text_input(input.text)  # ✅ GPT 사용
+    # latest_prompt = input.text
     text_triggered = True
     emotion_triggered = False
     sd_generation_requested = True

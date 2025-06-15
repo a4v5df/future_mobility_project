@@ -13,5 +13,6 @@ env/
 venv/
 *.pt
 test.py
+prompt_log.txt
 # VSCode
 .vscode/
