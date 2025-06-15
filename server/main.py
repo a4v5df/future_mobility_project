@@ -2,22 +2,32 @@ import cv2
 import numpy as np
 import threading
 from camera.capture import Camera
-from detectors.obj_detector import ObjectDetector
-from detectors.emo_detector import EmotionDetector
+from server.detectors.emotion_detector import EmotionDetector
 from visualizers.overlay import Overlay
 from generators.sd_generator import SDGenerator
 import uvicorn
 import time
 from emotion_state import update_emotion_counter, generate_prompt_from_top_emotion, clear_emotions
-from server import is_emotion_triggered, is_text_triggered, get_latest_prompt, reset_triggers, is_reset_requested, clear_reset_flag, is_sd_generation_requested,clear_sd_generation_flag
+from server import is_emotion_triggered, is_text_triggered, get_latest_prompt, reset_triggers, is_reset_requested, clear_reset_flag, is_sd_generation_requested, clear_sd_generation_flag
 
+# YOLO 모드 선택
+DETECTION_MODE = 'seg'  # 'box' or 'seg'
+device = 'cpu'
 
+# YOLO detector 분기 로딩
+if DETECTION_MODE == 'box':
+    from server.detectors.box_object_detector import ObjectDetector as YoloDetector
+elif DETECTION_MODE == 'seg':
+    from server.detectors.segment_object_detector import SegmentationDetector as YoloDetector
+else:
+    raise ValueError("DETECTION_MODE must be 'box' or 'seg'.")
+
+# 글로벌 변수 초기화
 sd_img_ready = False
 latest_sd_img = None
 sd_lock = threading.Lock()
 yolo_enabled = False
 obj_boxes = []
-device = 'cpu'
 
 def generate_sd_background(sd, prompt, height, width):
     global latest_sd_img, sd_img_ready
@@ -29,9 +39,9 @@ def generate_sd_background(sd, prompt, height, width):
 def main_loop():
     global latest_sd_img, sd_img_ready, yolo_enabled, obj_boxes
     cam = Camera(0)
-    yolo = ObjectDetector(device=device)
+    yolo = YoloDetector(device=device)
     emo = EmotionDetector()
-    sd = SDGenerator(device = device)
+    sd = SDGenerator(device=device)
 
     try:
         while True:
@@ -54,19 +64,17 @@ def main_loop():
             if is_sd_generation_requested():
                 if is_emotion_triggered():
                     prompt = generate_prompt_from_top_emotion()
-
                 elif is_text_triggered():
                     prompt = get_latest_prompt()
-
                 else:
                     prompt = "a neutral background"
 
                 threading.Thread(
-                        target=generate_sd_background,
-                        args=(sd, prompt, frame.shape[0], frame.shape[1]),
-                        daemon=True
-                    ).start()
-                
+                    target=generate_sd_background,
+                    args=(sd, prompt, frame.shape[0], frame.shape[1]),
+                    daemon=True
+                ).start()
+
                 reset_triggers()
                 clear_sd_generation_flag()
 
@@ -76,9 +84,16 @@ def main_loop():
             if latest_sd_img is not None:
                 with sd_lock:
                     bg = latest_sd_img.copy()
+
+                # seg 모드에서는 마스크 직접 사용할 수 있으므로 이 부분 조건 분기 가능
                 mask = np.ones(frame.shape, dtype=np.uint8) * 255
                 for b in obj_boxes:
-                    mask[b.y1:b.y2, b.x1:b.x2] = frame[b.y1:b.y2, b.x1:b.x2]
+                    if hasattr(b, 'mask') and b.mask is not None:
+                        binary_mask = (b.mask * 255).astype(np.uint8)
+                        contours, _ = cv2.findContours(binary_mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+                        cv2.drawContours(bg, contours, -1, (0, 255, 0), -1)
+                    else:
+                        mask[b.y1:b.y2, b.x1:b.x2] = frame[b.y1:b2, b.x1:b.x2]
                 frame = np.where(mask == 255, bg, mask)
 
             Overlay.draw(frame, obj_boxes + emotions)
